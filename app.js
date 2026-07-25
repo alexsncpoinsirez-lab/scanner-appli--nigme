@@ -3,7 +3,7 @@
 // Déployer > Gérer les déploiements > icône crayon > Nouvelle version >
 // Déployer. Colle ici l'URL qui se termine par /exec.
 // =========================================================================
-var URL_API = 'https://script.google.com/macros/s/AKfycbzcZFb9NOnmaEL3H5zYc7bCA6TyF4TjjeAyEip4gappyeFbucy44hX5cHOjP0gujQZYZw/exec';
+var URL_API = 'COLLE_ICI_URL_DE_TON_API_APPS_SCRIPT';
 
 // L'id de l'énigme demandée (paramètre ?id=... de l'URL du site GitHub Pages).
 var ID_ENIGME = new URLSearchParams(location.search).get('id') || '';
@@ -133,7 +133,7 @@ function afficherEcranInscription() {
   nettoyerEcran();
   carte.innerHTML =
     '<h1>👋 Bienvenue !</h1>' +
-    '<p class="question">Qui va jouer ? Ajoute un joueur (solo) ou plusieurs (vous jouerez à tour de rôle sur ce téléphone).</p>' +
+    '<p class="question">Qui va jouer ? Choisis un pseudo pour chacun (pas besoin du vrai prénom) — vous jouerez à tour de rôle sur ce téléphone si vous êtes plusieurs.</p>' +
     '<div id="zoneJoueurs"></div>' +
     '<button type="button" id="boutonAjouterJoueur" class="bouton-secondaire">+ Ajouter un joueur</button>' +
     '<button type="button" id="boutonCommencer">Commencer</button>' +
@@ -165,7 +165,7 @@ function ajouterLigneJoueur() {
   var ligne = document.createElement('div');
   ligne.className = 'ligne-joueur';
   ligne.innerHTML =
-    '<input type="text" class="champ-prenom" placeholder="Prénom ou surnom" autocomplete="off">' +
+    '<input type="text" class="champ-prenom" placeholder="Pseudo (pas de vrai prénom)" autocomplete="off">' +
     '<select class="champ-categorie">' + optionsCategories + '</select>';
   zone.appendChild(ligne);
 }
@@ -184,7 +184,7 @@ function validerInscription() {
   }
 
   if (profils.length === 0) {
-    erreur.textContent = 'Ajoute au moins un prénom.';
+    erreur.textContent = 'Ajoute au moins un pseudo.';
     return;
   }
 
