@@ -1,9 +1,5 @@
-// =========================================================================
-// URL DE L'API APPS SCRIPT — À COLLER APRÈS AVOIR DÉPLOYÉ Code.gs
-// Déployer > Gérer les déploiements > icône crayon > Nouvelle version >
-// Déployer. Colle ici l'URL qui se termine par /exec.
-// =========================================================================
-var URL_API = 'COLLE_ICI_URL_DE_TON_API_APPS_SCRIPT';
+// URL_API vient maintenant de config.js (chargé avant ce fichier dans index.html),
+// pour n'avoir qu'un seul endroit à mettre à jour si l'URL de l'API change.
 
 // L'id de l'énigme demandée (paramètre ?id=... de l'URL du site GitHub Pages).
 var ID_ENIGME = new URLSearchParams(location.search).get('id') || '';
