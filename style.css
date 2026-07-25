@@ -355,3 +355,102 @@ button:disabled {
   color: #777;
   margin: 10px 0;
 }
+
+/* --- Espace client (admin.html) --- */
+
+textarea {
+  width: 100%;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 3px solid #ffb3c6;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 14px;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #d1477a;
+}
+
+.champ-titre {
+  text-align: left;
+  font-size: 14px;
+  font-weight: bold;
+  color: #888;
+  margin: 0 0 6px 2px;
+}
+
+.etiquette-case {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font-size: 15px;
+  color: #444;
+  margin: 4px 0 16px 0;
+  cursor: pointer;
+}
+
+.etiquette-case input {
+  width: 20px;
+  height: 20px;
+}
+
+.carte-enigme {
+  text-align: left;
+  background: #fff8f5;
+  border: 2px solid #ffe0ec;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.carte-enigme-entete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.carte-enigme-numero {
+  font-weight: bold;
+  color: #d1477a;
+  font-size: 14px;
+}
+
+.badge-derniere {
+  background: #ffd54f;
+  color: #7a4f01;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.carte-enigme-question {
+  font-size: 16px;
+  color: #333;
+  margin: 4px 0;
+}
+
+.carte-enigme-detail {
+  font-size: 13px;
+  color: #777;
+  margin: 2px 0;
+}
+
+.carte-enigme-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.carte-enigme-actions button {
+  width: auto;
+  flex: 1;
+  font-size: 13px;
+  padding: 8px;
+  margin-bottom: 0;
+}
