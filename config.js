@@ -5,4 +5,4 @@
 // Partagée par app.js (le jeu) ET admin.js (l'espace client) : un seul
 // endroit à mettre à jour si tu redéploies un jour une nouvelle URL.
 // =========================================================================
-var URL_API = 'COLLE_ICI_URL_DE_TON_API_APPS_SCRIPT';
+var URL_API = 'https://script.google.com/macros/s/AKfycbzcZFb9NOnmaEL3H5zYc7bCA6TyF4TjjeAyEip4gappyeFbucy44hX5cHOjP0gujQZYZw/exec;
