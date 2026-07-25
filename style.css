@@ -1,0 +1,357 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 16px;
+  background: linear-gradient(160deg, #fff4d6, #ffe0ec);
+  font-family: 'Comic Sans MS', 'Segoe UI', sans-serif;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.carte {
+  position: relative;
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  padding: 28px 20px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.etat p {
+  font-size: 20px;
+  color: #444;
+}
+
+.points-chargement span {
+  display: inline-block;
+  animation: clignoter 1.4s infinite both;
+}
+
+.points-chargement span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.points-chargement span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes clignoter {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+h1 {
+  font-size: 22px;
+  margin-top: 0;
+  color: #d1477a;
+}
+
+.question {
+  font-size: 20px;
+  line-height: 1.4;
+  color: #333;
+  margin: 20px 0;
+}
+
+input[type="text"] {
+  width: 100%;
+  font-size: 22px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 3px solid #ffb3c6;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: #d1477a;
+}
+
+button {
+  font-size: 22px;
+  font-weight: bold;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 16px;
+  background: #ff7aa2;
+  color: white;
+  cursor: pointer;
+  width: 100%;
+}
+
+button:active {
+  background: #d1477a;
+}
+
+button:disabled {
+  background: #ffc9d9;
+  cursor: not-allowed;
+}
+
+.message-erreur {
+  color: #c0392b;
+  font-size: 18px;
+  margin-top: 10px;
+  min-height: 24px;
+}
+
+.message-succes {
+  background: #eafaf1;
+  border: 3px solid #2ecc71;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 20px;
+  color: #1e7e42;
+  margin-top: 16px;
+}
+
+.emoji {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* --- Écran de victoire --- */
+
+.victoire-conteneur {
+  position: relative;
+  overflow: hidden;
+  padding-top: 12px;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -40px;
+  font-size: 26px;
+  animation: tomber 2.8s linear forwards;
+  pointer-events: none;
+}
+
+@keyframes tomber {
+  to {
+    transform: translateY(420px) rotate(360deg);
+    opacity: 0.15;
+  }
+}
+
+.titre-victoire {
+  font-size: 28px;
+  color: #d1477a;
+  margin: 8px 0;
+  animation: rebond 0.6s ease;
+}
+
+@keyframes rebond {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.message-victoire {
+  background: #fff8e1;
+  border: 3px solid #ffb300;
+  border-radius: 16px;
+  padding: 20px;
+  font-size: 22px;
+  color: #7a4f01;
+  margin-top: 12px;
+}
+
+.bouton-rejouer {
+  margin-top: 18px;
+  background: #4fc3a1;
+}
+
+.bouton-rejouer:active {
+  background: #2f9c7c;
+}
+
+/* --- Inscription des joueurs --- */
+
+.ligne-joueur {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ligne-joueur .champ-prenom {
+  flex: 1.4;
+  font-size: 17px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 3px solid #ffb3c6;
+}
+
+.ligne-joueur .champ-categorie {
+  flex: 1;
+  font-size: 15px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 3px solid #ffb3c6;
+  background: white;
+}
+
+.bouton-secondaire {
+  background: #ffe0ec;
+  color: #d1477a;
+  margin-bottom: 12px;
+}
+
+.bouton-secondaire:active {
+  background: #ffc9d9;
+}
+
+/* --- Choix du joueur actif --- */
+
+.liste-joueurs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.bouton-joueur {
+  background: #6fb3ff;
+}
+
+.bouton-joueur:active {
+  background: #3f8fe0;
+}
+
+/* --- Lien discret "changer de joueur" --- */
+
+.pied-changement-joueur {
+  margin-top: 20px;
+}
+
+.bouton-lien {
+  background: none;
+  color: #999;
+  font-size: 14px;
+  font-weight: normal;
+  text-decoration: underline;
+  padding: 6px;
+  width: auto;
+}
+
+.bouton-lien:active {
+  background: none;
+  color: #666;
+}
+
+/* --- Ligne d'actions secondaires (aide + passer regroupés) --- */
+
+.actions-secondaires {
+  display: flex;
+  gap: 8px;
+}
+
+.actions-secondaires:empty {
+  display: none;
+}
+
+.actions-secondaires button {
+  width: auto;
+  flex: 1;
+  font-size: 14px;
+  padding: 10px 8px;
+  margin-top: 12px;
+}
+
+/* --- Coup de pouce après délai --- */
+
+.bouton-aide {
+  background: #ffd54f;
+  color: #7a4f01;
+}
+
+.bouton-aide:active {
+  background: #ffca28;
+}
+
+.bouton-aide:disabled {
+  background: #ffe9b0;
+  color: #a98a3a;
+}
+
+.zone-aide {
+  background: #fff8e1;
+  border: 3px dashed #ffb300;
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 17px;
+  color: #7a4f01;
+  margin-top: 12px;
+}
+
+/* --- Bouton Passer --- */
+
+.bouton-passer {
+  background: #e0e0e0;
+  color: #555;
+}
+
+.bouton-passer:active {
+  background: #cfcfcf;
+}
+
+.bouton-passer:disabled {
+  background: #eee;
+  color: #999;
+}
+
+/* --- Icône Quitter --- */
+
+.bouton-quitter {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #888;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.bouton-quitter:active {
+  background: #ddd;
+}
+
+/* --- Scanner le QR suivant --- */
+
+.bouton-scanner {
+  background: #4a90d9;
+  margin-top: 16px;
+}
+
+.bouton-scanner:active {
+  background: #3672ad;
+}
+
+.zone-scanner {
+  margin-top: 16px;
+}
+
+#videoScanner {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #000;
+}
+
+.astuce-scanner {
+  font-size: 14px;
+  color: #777;
+  margin: 10px 0;
+}
