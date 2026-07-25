@@ -3,7 +3,7 @@
 // Déployer > Gérer les déploiements > icône crayon > Nouvelle version >
 // Déployer. Colle ici l'URL qui se termine par /exec.
 // =========================================================================
-var URL_API = 'COLLE_ICI_URL_DE_TON_API_APPS_SCRIPT';
+var URL_API = 'https://script.google.com/macros/s/AKfycbzcZFb9NOnmaEL3H5zYc7bCA6TyF4TjjeAyEip4gappyeFbucy44hX5cHOjP0gujQZYZw/exec';
 
 // L'id de l'énigme demandée (paramètre ?id=... de l'URL du site GitHub Pages).
 var ID_ENIGME = new URLSearchParams(location.search).get('id') || '';
