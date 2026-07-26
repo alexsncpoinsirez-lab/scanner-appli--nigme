@@ -88,6 +88,7 @@ function afficherEspaceClient() {
     '<p class="question">Bonjour ' + escapeHtml(infosClient.nomClient) + ', voici tes énigmes.</p>' +
     '<div id="listeEnigmes"></div>' +
     '<button type="button" id="boutonAjouter" class="bouton-secondaire">+ Ajouter une énigme</button>' +
+    '<button type="button" id="boutonParametres" class="bouton-secondaire">⚙️ Paramètres</button>' +
     '<button type="button" id="boutonPdf">📄 Télécharger mes QR codes</button>' +
     '<p class="message-erreur" id="messageErreurEspace"></p>' +
     '<p class="message-succes" id="messageSuccesEspace" style="display:none;"></p>';
@@ -97,7 +98,97 @@ function afficherEspaceClient() {
   document.getElementById('boutonAjouter').addEventListener('click', function () {
     afficherFormulaire(null);
   });
+  document.getElementById('boutonParametres').addEventListener('click', afficherParametres);
   document.getElementById('boutonPdf').addEventListener('click', telechargerPdf);
+}
+
+// ---------------------------------------------------------------------
+// PARAMÈTRES DU PARCOURS (nom de l'évènement, message d'accueil, délais)
+// ---------------------------------------------------------------------
+
+function afficherParametres() {
+  carte.innerHTML =
+    '<div class="etat"><p>Chargement<span class="points-chargement"><span>.</span><span>.</span><span>.</span></span></p></div>';
+
+  appelerApi('adminObtenirParametres', { client: CLIENT_ID, pin: pinCourant })
+    .then(function (resultat) {
+      if (!resultat.success) {
+        carte.innerHTML =
+          '<div class="etat"><span class="emoji">⚠️</span><p>' + escapeHtml(resultat.message || 'Erreur.') + '</p></div>';
+        return;
+      }
+      afficherFormulaireParametres(resultat);
+    })
+    .catch(function () {
+      carte.innerHTML =
+        '<div class="etat"><span class="emoji">⚠️</span><p>Petit souci technique, réessaie dans un instant.</p></div>';
+    });
+}
+
+function afficherFormulaireParametres(reglages) {
+  carte.innerHTML =
+    '<h1>⚙️ Paramètres</h1>' +
+    '<p class="champ-titre">Nom de l\'évènement</p>' +
+    '<input type="text" id="champNomEvenement" placeholder="Ex : L\'anniversaire de Léa" autocomplete="off">' +
+    '<p class="champ-titre">Message d\'accueil (affiché avant de commencer)</p>' +
+    '<textarea id="champMessageAccueilParcours" rows="3" placeholder="Ex : Résous les énigmes pour trouver le trésor !"></textarea>' +
+    '<p class="champ-titre">Délai avant le bouton "Coup de pouce" (en secondes)</p>' +
+    '<input type="number" id="champDelaiAide" min="0" placeholder="45">' +
+    '<p class="champ-titre">Délai avant le bouton "Passer" (en secondes, 0 = désactivé)</p>' +
+    '<input type="number" id="champDelaiPasser" min="0" placeholder="120">' +
+    '<button type="button" id="boutonEnregistrerParametres">Enregistrer</button>' +
+    '<button type="button" id="boutonAnnulerParametres" class="bouton-secondaire">← Retour à mes énigmes</button>' +
+    '<p class="message-erreur" id="messageErreurParametres"></p>' +
+    '<p class="message-succes" id="messageSuccesParametres" style="display:none;"></p>';
+
+  document.getElementById('champNomEvenement').value = reglages.nomEvenement || '';
+  document.getElementById('champMessageAccueilParcours').value = reglages.messageAccueil || '';
+  document.getElementById('champDelaiAide').value = reglages.delaiAideSecondes;
+  document.getElementById('champDelaiPasser').value = reglages.delaiPasserSecondes;
+
+  document.getElementById('boutonAnnulerParametres').addEventListener('click', afficherEspaceClient);
+  document.getElementById('boutonEnregistrerParametres').addEventListener('click', soumettreParametres);
+}
+
+function soumettreParametres() {
+  var nomEvenement = document.getElementById('champNomEvenement').value.trim();
+  var messageAccueil = document.getElementById('champMessageAccueilParcours').value.trim();
+  var delaiAide = document.getElementById('champDelaiAide').value;
+  var delaiPasser = document.getElementById('champDelaiPasser').value;
+  var erreur = document.getElementById('messageErreurParametres');
+  var succes = document.getElementById('messageSuccesParametres');
+  var bouton = document.getElementById('boutonEnregistrerParametres');
+
+  if (!nomEvenement) {
+    erreur.textContent = 'Le nom de l\'évènement est obligatoire.';
+    return;
+  }
+
+  bouton.disabled = true;
+  erreur.textContent = '';
+  succes.style.display = 'none';
+
+  appelerApi('adminEnregistrerParametres', {
+    client: CLIENT_ID,
+    pin: pinCourant,
+    nomEvenement: nomEvenement,
+    messageAccueil: messageAccueil,
+    delaiAideSecondes: delaiAide,
+    delaiPasserSecondes: delaiPasser
+  })
+    .then(function (resultat) {
+      bouton.disabled = false;
+      if (!resultat.success) {
+        erreur.textContent = resultat.message || 'Erreur, réessaie.';
+        return;
+      }
+      succes.style.display = '';
+      succes.textContent = 'Paramètres enregistrés !';
+    })
+    .catch(function () {
+      bouton.disabled = false;
+      erreur.textContent = 'Petit souci technique, réessaie dans un instant.';
+    });
 }
 
 function afficherListeEnigmes() {
