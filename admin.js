@@ -90,6 +90,7 @@ function afficherEspaceClient() {
     '<p class="question">Bonjour ' + escapeHtml(infosClient.nomClient) + ', voici tes énigmes.</p>' +
     '<div id="listeEnigmes"></div>' +
     '<button type="button" id="boutonAjouter" class="bouton-secondaire">+ Ajouter un emplacement</button>' +
+    '<button type="button" id="boutonGenererIA" class="bouton-secondaire">🤖 Générer avec l\'IA</button>' +
     '<button type="button" id="boutonParametres" class="bouton-secondaire">⚙️ Paramètres</button>' +
     '<button type="button" id="boutonQuiz" class="bouton-secondaire">🏆 Mode Quiz</button>' +
     '<button type="button" id="boutonPdf">📄 Télécharger mes QR codes</button>' +
@@ -101,6 +102,7 @@ function afficherEspaceClient() {
   document.getElementById('boutonAjouter').addEventListener('click', function () {
     afficherFormulaire(null, null);
   });
+  document.getElementById('boutonGenererIA').addEventListener('click', afficherGenerateurIA);
   document.getElementById('boutonParametres').addEventListener('click', afficherParametres);
   document.getElementById('boutonQuiz').addEventListener('click', afficherModeQuiz);
   document.getElementById('boutonPdf').addEventListener('click', telechargerPdf);
@@ -370,6 +372,188 @@ function afficherClassementQuizAdmin() {
     .catch(function () {
       carte.innerHTML =
         '<div class="etat"><span class="emoji">⚠️</span><p>Petit souci technique, réessaie dans un instant.</p></div>';
+    });
+}
+
+// ---------------------------------------------------------------------
+// GÉNÉRATION D'ÉNIGMES PAR IA (thème choisi → énigmes proposées → relecture)
+// ---------------------------------------------------------------------
+
+var THEMES_SUGGERES_IA = [
+  'Musique', 'Cinéma', 'Télé', 'Jouets', 'Dessins animés',
+  'Noël', 'Pâques', 'Animaux', 'Sport', 'Nature'
+];
+
+function afficherGenerateurIA() {
+  var optionsThemes = THEMES_SUGGERES_IA.map(function (t) {
+    return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+  }).join('') + '<option value="autre">Autre (je précise)</option>';
+
+  var optionsCategorie = categoriesActuelles.map(function (c) {
+    return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+  }).join('');
+
+  carte.innerHTML =
+    '<h1>🤖 Générer avec l\'IA</h1>' +
+    '<p class="astuce-scanner">L\'IA propose des questions/réponses sur un thème. Tu pourras tout relire, corriger et ajouter le lieu de cache avant de les ajouter à ton parcours — rien n\'est enregistré automatiquement.</p>' +
+    '<p class="champ-titre">Thème</p>' +
+    '<select id="champThemeIA">' + optionsThemes + '</select>' +
+    '<input type="text" id="champThemeAutre" placeholder="Ex : super-héros, licornes..." autocomplete="off" style="display:none;">' +
+    (categoriesActuelles.length > 1
+      ? '<p class="champ-titre">Catégorie</p><select id="champCategorieIA">' + optionsCategorie + '</select>'
+      : '') +
+    '<p class="champ-titre">Public visé (optionnel)</p>' +
+    '<input type="text" id="champDifficulteIA" placeholder="Ex : 6-8 ans, facile..." autocomplete="off">' +
+    '<p class="champ-titre">Nombre d\'énigmes (max 10)</p>' +
+    '<input type="number" id="champNombreIA" min="1" max="10" value="5">' +
+    '<button type="button" id="boutonGenererIALancer">✨ Générer</button>' +
+    '<button type="button" id="boutonAnnulerIA" class="bouton-secondaire">Annuler</button>' +
+    '<p class="message-erreur" id="messageErreurIA"></p>';
+
+  document.getElementById('champThemeIA').addEventListener('change', function () {
+    document.getElementById('champThemeAutre').style.display = (this.value === 'autre') ? '' : 'none';
+  });
+  document.getElementById('boutonAnnulerIA').addEventListener('click', afficherEspaceClient);
+  document.getElementById('boutonGenererIALancer').addEventListener('click', lancerGenerationIA);
+}
+
+function lancerGenerationIA() {
+  var selectTheme = document.getElementById('champThemeIA');
+  var theme = selectTheme.value === 'autre'
+    ? document.getElementById('champThemeAutre').value.trim()
+    : selectTheme.value;
+  var champCategorieIA = document.getElementById('champCategorieIA');
+  var categorie = champCategorieIA ? champCategorieIA.value : categoriesActuelles[0];
+  var difficulte = document.getElementById('champDifficulteIA').value.trim();
+  var nombre = document.getElementById('champNombreIA').value;
+  var erreur = document.getElementById('messageErreurIA');
+  var bouton = document.getElementById('boutonGenererIALancer');
+
+  if (!theme) {
+    erreur.textContent = 'Choisis ou écris un thème.';
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Génération en cours...';
+  erreur.textContent = '';
+
+  appelerApi('adminGenererEnigmesIA', {
+    client: CLIENT_ID,
+    pin: pinCourant,
+    theme: theme,
+    difficulte: difficulte,
+    nombre: nombre
+  })
+    .then(function (resultat) {
+      bouton.disabled = false;
+      bouton.textContent = '✨ Générer';
+      if (!resultat.success) {
+        erreur.textContent = resultat.message || 'Erreur, réessaie.';
+        return;
+      }
+      afficherRevueEnigmesIA(resultat.enigmes, categorie);
+    })
+    .catch(function () {
+      bouton.disabled = false;
+      bouton.textContent = '✨ Générer';
+      erreur.textContent = 'Petit souci technique, réessaie dans un instant.';
+    });
+}
+
+/**
+ * Liste éditable des énigmes proposées par l'IA : chaque carte a une case pour
+ * la garder ou non, la question/réponse modifiables, et un champ "lieu de
+ * cache" à remplir (l'IA ne peut pas le deviner). Rien n'est enregistré tant
+ * que le client ne clique pas sur "Ajouter à mon parcours".
+ */
+function afficherRevueEnigmesIA(enigmes, categorie) {
+  var cartes = enigmes.map(function (e, i) {
+    return (
+      '<div class="carte-variante" data-index="' + i + '">' +
+      '<label class="etiquette-case">' +
+      '<input type="checkbox" class="case-garder-ia" checked> Garder cette énigme' +
+      '</label>' +
+      '<p class="champ-titre">Question</p>' +
+      '<textarea class="champ-question-ia" rows="2">' + escapeHtml(e.question) + '</textarea>' +
+      '<p class="champ-titre">Réponse attendue</p>' +
+      '<input type="text" class="champ-reponse-ia" value="' + escapeHtml(e.reponse) + '">' +
+      '<p class="champ-titre">Où cacheras-tu le prochain QR ? (optionnel, à compléter maintenant ou plus tard)</p>' +
+      '<textarea class="champ-indice-ia" rows="2" placeholder="Optionnel"></textarea>' +
+      '</div>'
+    );
+  }).join('');
+
+  carte.innerHTML =
+    '<h1>🤖 Relis avant d\'ajouter</h1>' +
+    '<p class="astuce-scanner">Corrige ce que tu veux, décoche ce que tu ne gardes pas, puis valide.</p>' +
+    cartes +
+    '<button type="button" id="boutonAccepterIA">✅ Ajouter les énigmes gardées à mon parcours</button>' +
+    '<button type="button" id="boutonRegenererIA" class="bouton-secondaire">🔄 Regénérer une autre série</button>' +
+    '<button type="button" id="boutonAnnulerRevueIA" class="bouton-secondaire">Annuler</button>' +
+    '<p class="message-erreur" id="messageErreurRevueIA"></p>';
+
+  document.getElementById('boutonAccepterIA').addEventListener('click', function () {
+    accepterEnigmesIA(categorie);
+  });
+  document.getElementById('boutonRegenererIA').addEventListener('click', afficherGenerateurIA);
+  document.getElementById('boutonAnnulerRevueIA').addEventListener('click', afficherEspaceClient);
+}
+
+function accepterEnigmesIA(categorie) {
+  var cartes = document.querySelectorAll('.carte-variante');
+  var erreur = document.getElementById('messageErreurRevueIA');
+  var bouton = document.getElementById('boutonAccepterIA');
+  var enigmesGardees = [];
+
+  cartes.forEach(function (carteEl) {
+    var garder = carteEl.querySelector('.case-garder-ia').checked;
+    if (!garder) return;
+    var question = carteEl.querySelector('.champ-question-ia').value.trim();
+    var reponse = carteEl.querySelector('.champ-reponse-ia').value.trim();
+    var indice = carteEl.querySelector('.champ-indice-ia').value.trim();
+    if (!question || !reponse) return;
+    enigmesGardees.push({ question: question, reponse: reponse, indice: indice });
+  });
+
+  if (enigmesGardees.length === 0) {
+    erreur.textContent = 'Garde au moins une énigme (coche la case et vérifie question/réponse).';
+    return;
+  }
+
+  bouton.disabled = true;
+  erreur.textContent = '';
+
+  appelerApi('adminAjouterEnigmesEnLot', {
+    client: CLIENT_ID,
+    pin: pinCourant,
+    categorie: categorie,
+    enigmes: JSON.stringify(enigmesGardees)
+  })
+    .then(function (resultat) {
+      bouton.disabled = false;
+      if (!resultat.success) {
+        erreur.textContent = resultat.message || 'Erreur, réessaie.';
+        return;
+      }
+      var messageSucces = resultat.nombreAjoutees + ' énigme(s) ajoutée(s) ! Pense à compléter le lieu de cache pour celles qui n\'en ont pas encore.';
+      appelerApi('adminListerEnigmes', { client: CLIENT_ID, pin: pinCourant })
+        .then(function (resultatListe) {
+          if (resultatListe.success) {
+            enigmesCourantes = resultatListe.enigmes;
+            categoriesActuelles = resultatListe.categoriesDisponibles || categoriesActuelles;
+          }
+          afficherEspaceClient();
+          var zoneSucces = document.getElementById('messageSuccesEspace');
+          if (zoneSucces) {
+            zoneSucces.style.display = '';
+            zoneSucces.textContent = messageSucces;
+          }
+        });
+    })
+    .catch(function () {
+      bouton.disabled = false;
+      erreur.textContent = 'Petit souci technique, réessaie dans un instant.';
     });
 }
 
