@@ -74,7 +74,7 @@ function nettoyerEcran() {
 function demarrer() {
   var profils = obtenirProfils();
   if (profils.length === 0) {
-    afficherEcranInscription();
+    afficherChoixModeJeu();
     return;
   }
   if (profils.length === 1) {
@@ -122,16 +122,41 @@ function genererId() {
 }
 
 // ---------------------------------------------------------------------
-// ÉCRAN D'INSCRIPTION (1er scan, ou après "Gérer les joueurs")
+// CHOIX DU MODE DE JEU (1er scan, ou après "Gérer les joueurs") :
+// solo (un seul pseudo, pas de bouton "ajouter un joueur") ou à plusieurs
+// (tour par tour sur le même téléphone, comme avant).
 // ---------------------------------------------------------------------
 
-function afficherEcranInscription() {
+function afficherChoixModeJeu() {
+  nettoyerEcran();
+  carte.innerHTML =
+    '<h1>🙋 Qui joue ?</h1>' +
+    '<p class="question">Vous jouez seul, ou à plusieurs sur ce même téléphone (chacun son tour) ?</p>' +
+    '<button type="button" id="boutonModeSolo">🧍 Solo</button>' +
+    '<button type="button" id="boutonModeMulti" class="bouton-secondaire">👨‍👩‍👧‍👦 À plusieurs, un seul téléphone</button>';
+
+  document.getElementById('boutonModeSolo').addEventListener('click', function () {
+    afficherEcranInscription(true);
+  });
+  document.getElementById('boutonModeMulti').addEventListener('click', function () {
+    afficherEcranInscription(false);
+  });
+}
+
+// ---------------------------------------------------------------------
+// ÉCRAN D'INSCRIPTION (après le choix solo/plusieurs, ou après "Gérer les joueurs")
+// ---------------------------------------------------------------------
+
+function afficherEcranInscription(estSolo) {
   nettoyerEcran();
   carte.innerHTML =
     '<h1>👋 Bienvenue !</h1>' +
-    '<p class="question">Qui va jouer ? Choisis un pseudo pour chacun (pas besoin du vrai prénom) — vous jouerez à tour de rôle sur ce téléphone si vous êtes plusieurs.</p>' +
+    '<p class="question">' + (estSolo
+      ? 'Choisis un pseudo (pas besoin du vrai prénom).'
+      : 'Qui va jouer ? Choisis un pseudo pour chacun (pas besoin du vrai prénom) — vous jouerez à tour de rôle sur ce téléphone si vous êtes plusieurs.') +
+    '</p>' +
     '<div id="zoneJoueurs"></div>' +
-    '<button type="button" id="boutonAjouterJoueur" class="bouton-secondaire">+ Ajouter un joueur</button>' +
+    (estSolo ? '' : '<button type="button" id="boutonAjouterJoueur" class="bouton-secondaire">+ Ajouter un joueur</button>') +
     '<button type="button" id="boutonCommencer">Commencer</button>' +
     '<p class="message-erreur" id="messageErreurInscription"></p>';
 
@@ -145,7 +170,9 @@ function afficherEcranInscription() {
       ajouterLigneJoueur();
     });
 
-  document.getElementById('boutonAjouterJoueur').addEventListener('click', ajouterLigneJoueur);
+  if (!estSolo) {
+    document.getElementById('boutonAjouterJoueur').addEventListener('click', ajouterLigneJoueur);
+  }
   document.getElementById('boutonCommencer').addEventListener('click', validerInscription);
 }
 
