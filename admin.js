@@ -5,6 +5,7 @@ var CLIENT_ID = new URLSearchParams(location.search).get('client') || '';
 var pinCourant = null;
 var enigmesCourantes = [];
 var infosClient = null;
+var categoriesActuelles = []; // catégories d'âge définies par ce client (Paramètres > Catégories)
 
 afficherEcranPin();
 
@@ -70,6 +71,7 @@ function connecter() {
       pinCourant = pin;
       infosClient = { nomClient: resultat.nomClient, parcours: resultat.parcours };
       enigmesCourantes = resultat.enigmes;
+      categoriesActuelles = resultat.categoriesDisponibles || ['Standard'];
       afficherEspaceClient();
     })
     .catch(function () {
@@ -87,7 +89,7 @@ function afficherEspaceClient() {
     '<h1>🗂️ ' + escapeHtml(infosClient.parcours) + '</h1>' +
     '<p class="question">Bonjour ' + escapeHtml(infosClient.nomClient) + ', voici tes énigmes.</p>' +
     '<div id="listeEnigmes"></div>' +
-    '<button type="button" id="boutonAjouter" class="bouton-secondaire">+ Ajouter une énigme</button>' +
+    '<button type="button" id="boutonAjouter" class="bouton-secondaire">+ Ajouter un emplacement</button>' +
     '<button type="button" id="boutonParametres" class="bouton-secondaire">⚙️ Paramètres</button>' +
     '<button type="button" id="boutonPdf">📄 Télécharger mes QR codes</button>' +
     '<p class="message-erreur" id="messageErreurEspace"></p>' +
@@ -96,7 +98,7 @@ function afficherEspaceClient() {
   afficherListeEnigmes();
 
   document.getElementById('boutonAjouter').addEventListener('click', function () {
-    afficherFormulaire(null);
+    afficherFormulaire(null, null);
   });
   document.getElementById('boutonParametres').addEventListener('click', afficherParametres);
   document.getElementById('boutonPdf').addEventListener('click', telechargerPdf);
@@ -136,6 +138,9 @@ function afficherFormulaireParametres(reglages) {
     '<input type="number" id="champDelaiAide" min="0" placeholder="45">' +
     '<p class="champ-titre">Délai avant le bouton "Passer" (en secondes, 0 = désactivé)</p>' +
     '<input type="number" id="champDelaiPasser" min="0" placeholder="120">' +
+    '<p class="champ-titre">Catégories d\'âge (séparées par une virgule)</p>' +
+    '<input type="text" id="champCategories" placeholder="Ex : Petits (4-6 ans), Grands (10 ans et +)" autocomplete="off">' +
+    '<p class="astuce-scanner" style="margin-top:-8px;">Chaque catégorie pourra avoir sa propre version de chaque énigme (question adaptée à l\'âge). Une seule catégorie = tout le monde voit le même contenu.</p>' +
     '<button type="button" id="boutonEnregistrerParametres">Enregistrer</button>' +
     '<button type="button" id="boutonAnnulerParametres" class="bouton-secondaire">← Retour à mes énigmes</button>' +
     '<p class="message-erreur" id="messageErreurParametres"></p>' +
@@ -145,6 +150,7 @@ function afficherFormulaireParametres(reglages) {
   document.getElementById('champMessageAccueilParcours').value = reglages.messageAccueil || '';
   document.getElementById('champDelaiAide').value = reglages.delaiAideSecondes;
   document.getElementById('champDelaiPasser').value = reglages.delaiPasserSecondes;
+  document.getElementById('champCategories').value = reglages.categories || '';
 
   document.getElementById('boutonAnnulerParametres').addEventListener('click', afficherEspaceClient);
   document.getElementById('boutonEnregistrerParametres').addEventListener('click', soumettreParametres);
@@ -155,6 +161,7 @@ function soumettreParametres() {
   var messageAccueil = document.getElementById('champMessageAccueilParcours').value.trim();
   var delaiAide = document.getElementById('champDelaiAide').value;
   var delaiPasser = document.getElementById('champDelaiPasser').value;
+  var categories = document.getElementById('champCategories').value.trim();
   var erreur = document.getElementById('messageErreurParametres');
   var succes = document.getElementById('messageSuccesParametres');
   var bouton = document.getElementById('boutonEnregistrerParametres');
@@ -174,7 +181,8 @@ function soumettreParametres() {
     nomEvenement: nomEvenement,
     messageAccueil: messageAccueil,
     delaiAideSecondes: delaiAide,
-    delaiPasserSecondes: delaiPasser
+    delaiPasserSecondes: delaiPasser,
+    categories: categories
   })
     .then(function (resultat) {
       bouton.disabled = false;
@@ -182,6 +190,8 @@ function soumettreParametres() {
         erreur.textContent = resultat.message || 'Erreur, réessaie.';
         return;
       }
+      categoriesActuelles = categories.split(',').map(function (c) { return c.trim(); }).filter(function (c) { return c; });
+      if (categoriesActuelles.length === 0) categoriesActuelles = ['Standard'];
       succes.style.display = '';
       succes.textContent = 'Paramètres enregistrés !';
     })
@@ -191,56 +201,132 @@ function soumettreParametres() {
     });
 }
 
+/**
+ * Affiche les énigmes groupées par EMPLACEMENT (même numéro d'ordre = même QR
+ * physique), avec une carte imbriquée par variante de catégorie à l'intérieur.
+ * Un bouton "+ Ajouter une catégorie à cet emplacement" apparaît sous chaque
+ * emplacement tant qu'il reste des catégories du client non encore utilisées ici.
+ */
 function afficherListeEnigmes() {
   var zone = document.getElementById('listeEnigmes');
   if (!zone) return;
 
   if (enigmesCourantes.length === 0) {
-    zone.innerHTML = '<p class="question" style="font-size:16px;">Tu n\'as pas encore d\'énigme. Clique sur "+ Ajouter une énigme" pour commencer.</p>';
+    zone.innerHTML = '<p class="question" style="font-size:16px;">Tu n\'as pas encore d\'énigme. Clique sur "+ Ajouter un emplacement" pour commencer.</p>';
     return;
   }
 
-  zone.innerHTML = enigmesCourantes.map(function (enigme) {
+  var parOrdre = {};
+  enigmesCourantes.forEach(function (e) {
+    if (!parOrdre[e.ordre]) parOrdre[e.ordre] = [];
+    parOrdre[e.ordre].push(e);
+  });
+  var ordresTries = Object.keys(parOrdre).map(Number).sort(function (a, b) { return a - b; });
+
+  zone.innerHTML = ordresTries.map(function (ordre) {
+    var variantes = parOrdre[ordre];
+    var estDerniere = variantes.some(function (v) { return v.estDerniere; });
+    var idEmplacement = variantes[0].id;
+    var categoriesManquantes = categoriesManquantesPour(idEmplacement);
+
+    var htmlVariantes = variantes.map(function (v) {
+      return (
+        '<div class="carte-variante" data-id="' + escapeHtml(v.id) + '" data-categorie="' + escapeHtml(v.categorie) + '">' +
+        (categoriesActuelles.length > 1 ? '<span class="etiquette-categorie">' + escapeHtml(v.categorie) + '</span>' : '') +
+        '<p class="carte-enigme-question">' + escapeHtml(v.question) + '</p>' +
+        '<p class="carte-enigme-detail"><strong>Réponse :</strong> ' + escapeHtml(v.reponseAttendue) + '</p>' +
+        (v.indice ? '<p class="carte-enigme-detail"><strong>Lieu du prochain QR :</strong> ' + escapeHtml(v.indice) + '</p>' : '') +
+        (v.recompense ? '<p class="carte-enigme-detail"><strong>Message de victoire :</strong> ' + escapeHtml(v.recompense) + '</p>' : '') +
+        '<div class="carte-enigme-actions">' +
+        '<button type="button" class="bouton-secondaire bouton-modifier">Modifier</button>' +
+        '<button type="button" class="bouton-secondaire bouton-supprimer">Supprimer</button>' +
+        '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    var boutonAjoutVariante = categoriesManquantes.length
+      ? '<button type="button" class="bouton-secondaire bouton-ajouter-variante" data-id-emplacement="' + escapeHtml(idEmplacement) + '">+ Ajouter une catégorie à cet emplacement</button>'
+      : '';
+
     return (
-      '<div class="carte-enigme" data-id="' + escapeHtml(enigme.id) + '">' +
+      '<div class="carte-enigme">' +
       '<div class="carte-enigme-entete">' +
-      '<span class="carte-enigme-numero">Énigme ' + enigme.ordre + '</span>' +
-      (enigme.estDerniere ? '<span class="badge-derniere">🏆 Dernière énigme</span>' : '') +
+      '<span class="carte-enigme-numero">Emplacement ' + ordre + '</span>' +
+      (estDerniere ? '<span class="badge-derniere">🏆 Dernière énigme</span>' : '') +
       '</div>' +
-      '<p class="carte-enigme-question">' + escapeHtml(enigme.question) + '</p>' +
-      '<p class="carte-enigme-detail"><strong>Réponse :</strong> ' + escapeHtml(enigme.reponseAttendue) + '</p>' +
-      (enigme.indice ? '<p class="carte-enigme-detail"><strong>Lieu du prochain QR :</strong> ' + escapeHtml(enigme.indice) + '</p>' : '') +
-      (enigme.recompense ? '<p class="carte-enigme-detail"><strong>Message de victoire :</strong> ' + escapeHtml(enigme.recompense) + '</p>' : '') +
-      '<div class="carte-enigme-actions">' +
-      '<button type="button" class="bouton-secondaire bouton-modifier">Modifier</button>' +
-      '<button type="button" class="bouton-secondaire bouton-supprimer">Supprimer</button>' +
-      '</div>' +
+      htmlVariantes +
+      boutonAjoutVariante +
       '</div>'
     );
   }).join('');
 
-  var cartes = zone.querySelectorAll('.carte-enigme');
-  cartes.forEach(function (carteEl) {
-    var id = carteEl.getAttribute('data-id');
-    carteEl.querySelector('.bouton-modifier').addEventListener('click', function () {
-      var enigme = enigmesCourantes.filter(function (e) { return e.id === id; })[0];
-      if (enigme) afficherFormulaire(enigme);
+  var variantes = zone.querySelectorAll('.carte-variante');
+  variantes.forEach(function (el) {
+    var id = el.getAttribute('data-id');
+    var categorie = el.getAttribute('data-categorie');
+    el.querySelector('.bouton-modifier').addEventListener('click', function () {
+      var enigme = enigmesCourantes.filter(function (e) { return e.id === id && e.categorie === categorie; })[0];
+      if (enigme) afficherFormulaire(enigme, null);
     });
-    carteEl.querySelector('.bouton-supprimer').addEventListener('click', function () {
-      supprimerEnigme(id);
+    el.querySelector('.bouton-supprimer').addEventListener('click', function () {
+      supprimerEnigme(id, categorie);
     });
   });
+
+  var boutonsAjoutVariante = zone.querySelectorAll('.bouton-ajouter-variante');
+  boutonsAjoutVariante.forEach(function (bouton) {
+    bouton.addEventListener('click', function () {
+      afficherFormulaire(null, this.getAttribute('data-id-emplacement'));
+    });
+  });
+}
+
+/**
+ * Catégories du client pas encore représentées à l'emplacement idEmplacement.
+ */
+function categoriesManquantesPour(idEmplacement) {
+  var utilisees = enigmesCourantes
+    .filter(function (e) { return e.id === idEmplacement; })
+    .map(function (e) { return e.categorie; });
+  return categoriesActuelles.filter(function (c) { return utilisees.indexOf(c) === -1; });
 }
 
 // ---------------------------------------------------------------------
 // FORMULAIRE AJOUT / MODIFICATION
 // ---------------------------------------------------------------------
 
-function afficherFormulaire(enigmeExistante) {
+/**
+ * Trois modes possibles :
+ * - enigmeExistante fourni : modification d'une variante précise (catégorie fixe).
+ * - idPourNouvelleVariante fourni : nouvelle variante de catégorie pour un
+ *   emplacement déjà existant (pas de case "dernière énigme" : héritée du serveur).
+ * - ni l'un ni l'autre : tout nouvel emplacement (nouveau QR physique), avec choix
+ *   de la catégorie et possibilité de le marquer comme énigme finale.
+ */
+function afficherFormulaire(enigmeExistante, idPourNouvelleVariante) {
   var estModification = !!enigmeExistante;
+  var estNouvelleVariante = !estModification && !!idPourNouvelleVariante;
+
+  var blocCategorie;
+  if (estModification) {
+    blocCategorie =
+      '<p class="champ-titre">Catégorie</p>' +
+      '<p class="etiquette-categorie-fixe">' + escapeHtml(enigmeExistante.categorie) + '</p>';
+  } else {
+    var categoriesProposees = estNouvelleVariante ? categoriesManquantesPour(idPourNouvelleVariante) : categoriesActuelles;
+    var options = categoriesProposees.map(function (c) {
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+    }).join('');
+    blocCategorie =
+      '<p class="champ-titre">Catégorie</p>' +
+      '<select id="champCategorie">' + options + '</select>';
+  }
 
   carte.innerHTML =
-    '<h1>' + (estModification ? '✏️ Modifier l\'énigme' : '➕ Nouvelle énigme') + '</h1>' +
+    '<h1>' + (estModification ? '✏️ Modifier l\'énigme' : (estNouvelleVariante ? '➕ Nouvelle catégorie' : '➕ Nouvel emplacement')) + '</h1>' +
+    (estNouvelleVariante ? '<p class="astuce-scanner">Cette variante s\'affichera au même endroit physique (même QR), uniquement pour la catégorie choisie.</p>' : '') +
+    blocCategorie +
     '<p class="champ-titre">Question</p>' +
     '<textarea id="champQuestion" rows="3" placeholder="Ex : Je vole sans ailes, je pleure sans yeux. Qui suis-je ?"></textarea>' +
     '<p class="champ-titre">Réponse attendue</p>' +
@@ -249,13 +335,14 @@ function afficherFormulaire(enigmeExistante) {
     '<textarea id="champIndice" rows="2" placeholder="Ex : Va voir sous le paillasson de la porte d\'entrée"></textarea>' +
     '<p class="champ-titre">Coup de pouce (optionnel, affiché si l\'enfant est bloqué)</p>' +
     '<textarea id="champIndiceSupplementaire" rows="2" placeholder="Optionnel"></textarea>' +
-    '<label class="etiquette-case">' +
-    '<input type="checkbox" id="champEstDerniere"> C\'est la dernière énigme (le trésor final)' +
-    '</label>' +
-    '<div id="zoneMessageVictoire" style="display:none;">' +
-    '<p class="champ-titre">Message de victoire</p>' +
-    '<textarea id="champMessageVictoire" rows="2" placeholder="Ex : Bravo, tu as trouvé le trésor !"></textarea>' +
-    '</div>' +
+    (estNouvelleVariante ? '' :
+      '<label class="etiquette-case">' +
+      '<input type="checkbox" id="champEstDerniere"> C\'est la dernière énigme (le trésor final)' +
+      '</label>' +
+      '<div id="zoneMessageVictoire" style="display:none;">' +
+      '<p class="champ-titre">Message de victoire</p>' +
+      '<textarea id="champMessageVictoire" rows="2" placeholder="Ex : Bravo, tu as trouvé le trésor !"></textarea>' +
+      '</div>') +
     '<button type="button" id="boutonEnregistrer">Enregistrer</button>' +
     '<button type="button" id="boutonAnnulerFormulaire" class="bouton-secondaire">Annuler</button>' +
     '<p class="message-erreur" id="messageErreurFormulaire"></p>';
@@ -272,25 +359,35 @@ function afficherFormulaire(enigmeExistante) {
     }
   }
 
-  document.getElementById('champEstDerniere').addEventListener('change', function () {
-    document.getElementById('zoneMessageVictoire').style.display = this.checked ? '' : 'none';
-  });
+  var champEstDerniere = document.getElementById('champEstDerniere');
+  if (champEstDerniere) {
+    champEstDerniere.addEventListener('change', function () {
+      document.getElementById('zoneMessageVictoire').style.display = this.checked ? '' : 'none';
+    });
+  }
 
   document.getElementById('boutonAnnulerFormulaire').addEventListener('click', afficherEspaceClient);
   document.getElementById('boutonEnregistrer').addEventListener('click', function () {
-    soumettreFormulaire(estModification ? enigmeExistante.id : null);
+    soumettreFormulaire(estModification ? enigmeExistante : null, estNouvelleVariante ? idPourNouvelleVariante : null);
   });
 }
 
-function soumettreFormulaire(idEnModification) {
+function soumettreFormulaire(enigmeExistante, idPourNouvelleVariante) {
+  var estModification = !!enigmeExistante;
   var question = document.getElementById('champQuestion').value.trim();
   var reponse = document.getElementById('champReponse').value.trim();
   var indice = document.getElementById('champIndice').value.trim();
   var indiceSupplementaire = document.getElementById('champIndiceSupplementaire').value.trim();
-  var estDerniere = document.getElementById('champEstDerniere').checked;
-  var messageVictoire = document.getElementById('champMessageVictoire').value.trim();
   var erreur = document.getElementById('messageErreurFormulaire');
   var bouton = document.getElementById('boutonEnregistrer');
+
+  var estDerniere = false;
+  var messageVictoire = '';
+  var champEstDerniere = document.getElementById('champEstDerniere');
+  if (champEstDerniere) {
+    estDerniere = champEstDerniere.checked;
+    messageVictoire = document.getElementById('champMessageVictoire').value.trim();
+  }
 
   if (!question || !reponse) {
     erreur.textContent = 'La question et la réponse sont obligatoires.';
@@ -315,8 +412,16 @@ function soumettreFormulaire(idEnModification) {
     messageVictoire: messageVictoire
   };
 
-  var action = idEnModification ? 'adminModifierEnigme' : 'adminAjouterEnigme';
-  if (idEnModification) params.id = idEnModification;
+  var action;
+  if (estModification) {
+    action = 'adminModifierEnigme';
+    params.id = enigmeExistante.id;
+    params.categorie = enigmeExistante.categorie;
+  } else {
+    action = 'adminAjouterEnigme';
+    params.categorie = document.getElementById('champCategorie').value;
+    if (idPourNouvelleVariante) params.idExistant = idPourNouvelleVariante;
+  }
 
   appelerApi(action, params)
     .then(function (resultat) {
@@ -333,11 +438,11 @@ function soumettreFormulaire(idEnModification) {
     });
 }
 
-function supprimerEnigme(id) {
-  var confirme = window.confirm('Supprimer cette énigme ? Les énigmes suivantes seront renumérotées automatiquement.');
+function supprimerEnigme(id, categorie) {
+  var confirme = window.confirm('Supprimer cette variante ? Si c\'était la seule catégorie de cet emplacement, il disparaît entièrement et les suivants se renumérotent automatiquement.');
   if (!confirme) return;
 
-  appelerApi('adminSupprimerEnigme', { client: CLIENT_ID, pin: pinCourant, id: id })
+  appelerApi('adminSupprimerEnigme', { client: CLIENT_ID, pin: pinCourant, id: id, categorie: categorie })
     .then(function (resultat) {
       if (!resultat.success) {
         window.alert(resultat.message || 'Erreur, réessaie.');
@@ -355,6 +460,7 @@ function rafraichirEtRevenir(avertissement) {
     .then(function (resultat) {
       if (resultat.success) {
         enigmesCourantes = resultat.enigmes;
+        categoriesActuelles = resultat.categoriesDisponibles || categoriesActuelles;
       }
       afficherEspaceClient();
       if (avertissement) {
