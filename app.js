@@ -40,7 +40,7 @@ function afficherAccueil() {
   carte.innerHTML =
     '<div class="etat"><p>Chargement<span class="points-chargement"><span>.</span><span>.</span><span>.</span></span></p></div>';
 
-  appelerApi('infosAccueil')
+  appelerApi('infosAccueil', { id: ID_ENIGME })
     .then(function (infos) {
       carte.innerHTML =
         '<span class="emoji">🗺️</span>' +
