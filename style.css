@@ -456,3 +456,51 @@ textarea:focus {
   padding: 8px;
   margin-bottom: 0;
 }
+
+/* --- Variantes de catégorie à l'intérieur d'un emplacement --- */
+
+.carte-variante {
+  background: white;
+  border: 2px solid #ffe0ec;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+
+.etiquette-categorie {
+  display: inline-block;
+  background: #ffe0ec;
+  color: #d1477a;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.etiquette-categorie-fixe {
+  display: inline-block;
+  background: #ffe0ec;
+  color: #d1477a;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+
+.bouton-ajouter-variante {
+  font-size: 13px;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+select#champCategorie {
+  width: 100%;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 3px solid #ffb3c6;
+  background: white;
+  margin-bottom: 16px;
+}
