@@ -57,7 +57,8 @@ h1 {
   margin: 20px 0;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="number"] {
   width: 100%;
   font-size: 22px;
   padding: 14px;
@@ -67,7 +68,8 @@ input[type="text"] {
   margin-bottom: 16px;
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="number"]:focus {
   outline: none;
   border-color: #d1477a;
 }
