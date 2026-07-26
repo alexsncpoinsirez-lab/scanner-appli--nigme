@@ -160,7 +160,7 @@ function afficherEcranInscription(estSolo) {
     '<button type="button" id="boutonCommencer">Commencer</button>' +
     '<p class="message-erreur" id="messageErreurInscription"></p>';
 
-  appelerApi('categoriesDisponibles')
+  appelerApi('categoriesDisponibles', { id: ID_ENIGME })
     .then(function (categories) {
       window.categoriesDisponibles = (categories && categories.length) ? categories : ['Standard'];
       ajouterLigneJoueur();
