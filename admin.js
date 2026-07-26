@@ -91,6 +91,7 @@ function afficherEspaceClient() {
     '<div id="listeEnigmes"></div>' +
     '<button type="button" id="boutonAjouter" class="bouton-secondaire">+ Ajouter un emplacement</button>' +
     '<button type="button" id="boutonParametres" class="bouton-secondaire">⚙️ Paramètres</button>' +
+    '<button type="button" id="boutonQuiz" class="bouton-secondaire">🏆 Mode Quiz</button>' +
     '<button type="button" id="boutonPdf">📄 Télécharger mes QR codes</button>' +
     '<p class="message-erreur" id="messageErreurEspace"></p>' +
     '<p class="message-succes" id="messageSuccesEspace" style="display:none;"></p>';
@@ -101,6 +102,7 @@ function afficherEspaceClient() {
     afficherFormulaire(null, null);
   });
   document.getElementById('boutonParametres').addEventListener('click', afficherParametres);
+  document.getElementById('boutonQuiz').addEventListener('click', afficherModeQuiz);
   document.getElementById('boutonPdf').addEventListener('click', telechargerPdf);
 }
 
@@ -198,6 +200,176 @@ function soumettreParametres() {
     .catch(function () {
       bouton.disabled = false;
       erreur.textContent = 'Petit souci technique, réessaie dans un instant.';
+    });
+}
+
+// ---------------------------------------------------------------------
+// MODE QUIZ MULTIJOUEUR (chacun à son rythme, classement final)
+// ---------------------------------------------------------------------
+// Réutilise les mêmes énigmes que la chasse (question/réponse) dans un mode de
+// jeu différent : le client démarre une manche (nombre de questions au choix),
+// partage UN lien avec les joueurs, chacun répond aux mêmes questions à son
+// rythme, et un classement se calcule automatiquement. Voir Code.gs pour le
+// détail (une seule manche active à la fois, sans catégories d'âge ici).
+
+/**
+ * Construit le lien public de la partie à partir de l'URL de CETTE page
+ * (admin.html) plutôt que d'interroger le serveur : les deux pages sont hébergées
+ * côte à côte sur GitHub Pages, pas besoin d'aller chercher WebAppUrl.
+ */
+function obtenirLienQuiz() {
+  return location.href.replace(/admin\.html.*$/, 'quiz.html') + '?client=' + encodeURIComponent(CLIENT_ID);
+}
+
+function afficherModeQuiz() {
+  carte.innerHTML = '<div class="etat"><p>Chargement<span class="points-chargement"><span>.</span><span>.</span><span>.</span></span></p></div>';
+
+  appelerApi('adminQuizEtat', { client: CLIENT_ID, pin: pinCourant })
+    .then(function (etat) {
+      if (!etat.success) {
+        carte.innerHTML =
+          '<div class="etat"><span class="emoji">⚠️</span><p>' + escapeHtml(etat.message || 'Erreur.') + '</p></div>';
+        return;
+      }
+      afficherPanneauQuiz(etat);
+    })
+    .catch(function () {
+      carte.innerHTML =
+        '<div class="etat"><span class="emoji">⚠️</span><p>Petit souci technique, réessaie dans un instant.</p></div>';
+    });
+}
+
+function afficherPanneauQuiz(etat) {
+  var lienQuiz = obtenirLienQuiz();
+  var urlQrCode = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(lienQuiz);
+
+  carte.innerHTML =
+    '<h1>🏆 Mode Quiz</h1>' +
+    (etat.enCours
+      ? '<div class="message-succes">Manche en cours — ' + etat.nombreQuestionsActuel + ' question(s).</div>'
+      : '<p class="astuce-scanner">Aucune manche en cours pour l\'instant.</p>') +
+    '<p class="champ-titre">Nombre de questions (' + etat.nombreEnigmesDisponibles + ' énigme(s) disponible(s))</p>' +
+    '<input type="number" id="champNombreQuestions" min="1" max="' + etat.nombreEnigmesDisponibles + '" value="' + etat.nombreQuestionsActuel + '">' +
+    '<button type="button" id="boutonDemarrerManche">' + (etat.enCours ? '🔁 Démarrer une nouvelle manche' : '▶️ Démarrer une manche') + '</button>' +
+    (etat.enCours ? '<button type="button" id="boutonTerminerManche" class="bouton-secondaire">⏹️ Terminer la manche en cours</button>' : '') +
+    '<p class="champ-titre">Lien à partager avec les joueurs</p>' +
+    '<p class="carte-enigme-detail" style="word-break:break-all;">' + escapeHtml(lienQuiz) + '</p>' +
+    '<button type="button" id="boutonCopierLien" class="bouton-secondaire">📋 Copier le lien</button>' +
+    '<div style="text-align:center; margin: 12px 0;"><img src="' + urlQrCode + '" alt="QR code du quiz" width="150" height="150"></div>' +
+    '<button type="button" id="boutonVoirClassementAdmin" class="bouton-secondaire">📊 Voir le classement</button>' +
+    '<button type="button" id="boutonRetourQuiz" class="bouton-secondaire">← Retour à mes énigmes</button>' +
+    '<p class="message-erreur" id="messageErreurQuizAdmin"></p>' +
+    '<p class="message-succes" id="messageSuccesQuizAdmin" style="display:none;"></p>';
+
+  document.getElementById('boutonDemarrerManche').addEventListener('click', function () { demarrerMancheQuiz(etat.enCours); });
+  if (etat.enCours) {
+    document.getElementById('boutonTerminerManche').addEventListener('click', terminerMancheQuiz);
+  }
+  document.getElementById('boutonCopierLien').addEventListener('click', function () {
+    copierTexte(lienQuiz, document.getElementById('boutonCopierLien'));
+  });
+  document.getElementById('boutonVoirClassementAdmin').addEventListener('click', afficherClassementQuizAdmin);
+  document.getElementById('boutonRetourQuiz').addEventListener('click', afficherEspaceClient);
+}
+
+function demarrerMancheQuiz(uneMancheEstDejaEnCours) {
+  if (uneMancheEstDejaEnCours) {
+    var confirme = window.confirm('Une manche est déjà en cours : la démarrer terminera celle-ci (son classement restera consultable). Continuer ?');
+    if (!confirme) return;
+  }
+
+  var nombreQuestions = document.getElementById('champNombreQuestions').value;
+  var erreur = document.getElementById('messageErreurQuizAdmin');
+  var bouton = document.getElementById('boutonDemarrerManche');
+  bouton.disabled = true;
+  erreur.textContent = '';
+
+  appelerApi('adminQuizDemarrerManche', { client: CLIENT_ID, pin: pinCourant, nombreQuestions: nombreQuestions })
+    .then(function (resultat) {
+      bouton.disabled = false;
+      if (!resultat.success) {
+        erreur.textContent = resultat.message || 'Erreur, réessaie.';
+        return;
+      }
+      afficherModeQuiz();
+    })
+    .catch(function () {
+      bouton.disabled = false;
+      erreur.textContent = 'Petit souci technique, réessaie dans un instant.';
+    });
+}
+
+function terminerMancheQuiz() {
+  var confirme = window.confirm('Terminer la manche en cours ? Les joueurs qui n\'ont pas fini ne pourront plus répondre, mais le classement restera consultable.');
+  if (!confirme) return;
+
+  appelerApi('adminQuizTerminerManche', { client: CLIENT_ID, pin: pinCourant })
+    .then(function (resultat) {
+      if (!resultat.success) {
+        window.alert(resultat.message || 'Erreur, réessaie.');
+        return;
+      }
+      afficherModeQuiz();
+    })
+    .catch(function () {
+      window.alert('Petit souci technique, réessaie dans un instant.');
+    });
+}
+
+function copierTexte(texte, bouton) {
+  var texteOriginal = bouton.textContent;
+  var apresCopie = function () {
+    bouton.textContent = '✅ Copié !';
+    setTimeout(function () { bouton.textContent = texteOriginal; }, 1800);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texte).then(apresCopie).catch(function () {
+      window.prompt('Copie manuelle (Ctrl+C puis Entrée) :', texte);
+    });
+  } else {
+    window.prompt('Copie manuelle (Ctrl+C puis Entrée) :', texte);
+  }
+}
+
+function afficherClassementQuizAdmin() {
+  carte.innerHTML = '<div class="etat"><p>Chargement<span class="points-chargement"><span>.</span><span>.</span><span>.</span></span></p></div>';
+
+  appelerApi('quizClassement', { client: CLIENT_ID })
+    .then(function (resultat) {
+      if (!resultat.success) {
+        carte.innerHTML =
+          '<div class="etat"><span class="emoji">⏳</span><p>' + escapeHtml(resultat.message || 'Aucun classement pour l\'instant.') + '</p></div>' +
+          '<button type="button" id="boutonRetourClassementAdmin" class="bouton-secondaire">← Retour</button>';
+        document.getElementById('boutonRetourClassementAdmin').addEventListener('click', afficherModeQuiz);
+        return;
+      }
+
+      var medailles = ['🥇', '🥈', '🥉'];
+      var lignes = resultat.classement.map(function (j, i) {
+        var rang = medailles[i] || (i + 1) + '.';
+        return (
+          '<div class="carte-variante">' +
+          '<strong>' + rang + ' ' + escapeHtml(j.pseudo) + '</strong>' +
+          '<p class="carte-enigme-detail">' + j.bonnesReponses + ' / ' + resultat.nombreQuestions + ' bonnes réponses — ' + j.tempsTotal + ' s' +
+          (j.termine ? '' : ' (en cours)') +
+          '</p>' +
+          '</div>'
+        );
+      }).join('');
+
+      carte.innerHTML =
+        '<h1>📊 Classement</h1>' +
+        (resultat.classement.length ? lignes : '<p class="question" style="font-size:16px;">Personne n\'a encore répondu.</p>') +
+        '<button type="button" id="boutonActualiserClassementAdmin" class="bouton-secondaire">Actualiser</button>' +
+        '<button type="button" id="boutonRetourClassementAdmin" class="bouton-secondaire">← Retour</button>';
+
+      document.getElementById('boutonActualiserClassementAdmin').addEventListener('click', afficherClassementQuizAdmin);
+      document.getElementById('boutonRetourClassementAdmin').addEventListener('click', afficherModeQuiz);
+    })
+    .catch(function () {
+      carte.innerHTML =
+        '<div class="etat"><span class="emoji">⚠️</span><p>Petit souci technique, réessaie dans un instant.</p></div>';
     });
 }
 
